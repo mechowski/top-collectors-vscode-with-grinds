@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Топ сборщиков</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <h1>Топ сборщиков</h1>
+        <p>Рейтинг рассчитывается автоматически из Google Таблицы</p>
+      </div>
+    </header>
+
+    <section class="card settings">
+      <h2>Подключение Google Таблицы</h2>
+
+      <div class="form-grid">
+        <div class="field field-url">
+          <label for="sheetUrl">Ссылка на Google Таблицу</label>
+          <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/...">
+        </div>
+
+        <div class="field">
+          <label for="nameCol">Столбец с фамилией</label>
+          <select id="nameCol" disabled>
+            <option>Сначала загрузите таблицу</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="statusCol">Столбец со статусом</label>
+          <select id="statusCol" disabled>
+            <option>Сначала загрузите таблицу</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="grindsCol">Столбец с помолами</label>
+          <select id="grindsCol" disabled>
+            <option>Сначала загрузите таблицу</option>
+          </select>
+        </div>
+
+        <button id="loadBtn" type="button">Загрузить</button>
+      </div>
+
+      <p class="hint">
+        После загрузки таблицы выберите столбец с фамилией, статусом и помолами.
+        Сайт считает количество строк со статусом «Собран» и каждую непустую ячейку в столбце помолов отдельно для
+        каждого сборщика.
+      </p>
+    </section>
+
+    <div id="error" class="error" role="alert"></div>
+
+    <div class="statusbar">
+      <div class="live">
+        <span class="dot"></span>
+        <span id="updated">Ожидание подключения</span>
+      </div>
+      <div class="totals">
+        <span id="total"></span>
+        <span id="totalGrinds"></span>
+      </div>
+    </div>
+
+    <section class="card leaderboard">
+      <div class="table-head">
+        <div>Место</div>
+        <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+        <button class="sort-button" type="button" data-sort="collected">Собран</button>
+        <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+        <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+      </div>
+
+      <div id="rows">
+        <div class="empty">
+          Подключите Google Таблицу, чтобы увидеть рейтинг.
+        </div>
+      </div>
+    </section>
+
+    <p class="footer">
+      После подключения данные обновляются автоматически каждые 15 секунд.
+    </p>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>
