@@ -1,25 +1,19 @@
 const state = {
-  urls: {
-    im: "",
-    mp: ""
-  },
-  headers: { im: [], mp: [] },
+  url: "",
+  headers: [],
   periods: {
-    day: { days: 1, sheets: [], groupSheets: {} },
-    week: { days: 7, sheets: [], groupSheets: {} },
-    month: { days: 30, sheets: [], groupSheets: {} }
+    day: { days: 1, sheets: [] },
+    week: { days: 7, sheets: [] },
+    month: { days: 30, sheets: [] }
   },
   dateFormat: "DD.MM.YYYY",
-  columnsInitialized: { im: false, mp: false },
+  columnsInitialized: false,
   timer: null,
   sortKey: "score",
   sortDirection: "desc"
 };
 
-const mpCollectors = new Set(["ОЗОН ФБС", "ВБ ФБС", "ЯНДЕКС ФБС"]);
-const mpSheetName = "МП";
 const savedUrlKey = "top-collectors-sheet-url";
-const savedMpUrlKey = "top-collectors-mp-sheet-url";
 const $ = (id) => document.getElementById(id);
 const adminAuthKey = "top-collectors-admin-auth";
 const savedTabUrlKey = "top-collectors-tab-url";
@@ -27,14 +21,6 @@ const tabState = {
   headers: [],
   rows: []
 };
-
-function normalizeCollectorName(name) {
-  return name.trim().replace(/\s+/g, " ").toLocaleUpperCase("ru-RU");
-}
-
-function columnElementId(prefix, column) {
-  return prefix ? `mp${column[0].toUpperCase()}${column.slice(1)}Col` : `${column}Col`;
-}
 
 function setAdminMode(isAdmin) {
   document.body.classList.toggle("admin-mode", isAdmin);
@@ -93,17 +79,6 @@ function isCollectorName(name) {
 
   return !serviceNames.includes(normalized) &&
     /^[\p{L}][\p{L}'’-]*(?:[\s-]+[\p{L}][\p{L}'’-]*)*$/u.test(name);
-}
-
-function parseSheetUrl(url, sheetName) {
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-
-  if (!match) {
-    throw new Error("Не удалось найти ID Google Таблицы в ссылке.");
-  }
-
-  const spreadsheetId = match[1];
-  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
 
 function parseExportUrl(url) {
@@ -221,20 +196,20 @@ function parseCSV(text) {
   return result;
 }
 
-function fillColumnSelects(headers, prefix = "") {
+function fillColumnSelects(headers) {
   const options = headers
     .map((header, index) =>
       `<option value="${index}">${escapeHtml(header || `Столбец ${index + 1}`)}</option>`
     )
     .join("");
 
-  $(columnElementId(prefix, "name")).innerHTML = options;
-  $(columnElementId(prefix, "status")).innerHTML = options;
-  $(columnElementId(prefix, "grinds")).innerHTML = options;
+  $("nameCol").innerHTML = options;
+  $("statusCol").innerHTML = options;
+  $("grindsCol").innerHTML = options;
 
-  $(columnElementId(prefix, "name")).disabled = false;
-  $(columnElementId(prefix, "status")).disabled = false;
-  $(columnElementId(prefix, "grinds")).disabled = false;
+  $("nameCol").disabled = false;
+  $("statusCol").disabled = false;
+  $("grindsCol").disabled = false;
 
   const nameIndex = headers.findIndex((header) =>
     /фам|сборщик|name|surname/i.test(header)
@@ -245,24 +220,24 @@ function fillColumnSelects(headers, prefix = "") {
   );
 
   if (nameIndex >= 0) {
-    $(columnElementId(prefix, "name")).value = nameIndex;
+    $("nameCol").value = nameIndex;
   }
 
   if (statusIndex >= 0) {
-    $(columnElementId(prefix, "status")).value = statusIndex;
+    $("statusCol").value = statusIndex;
   }
 
   const grindsIndex = headers.findIndex((header) =>
     /помол|grind/i.test(header)
   );
 
-  $(columnElementId(prefix, "grinds")).value = grindsIndex >= 0 ? grindsIndex : statusIndex;
+  $("grindsCol").value = grindsIndex >= 0 ? grindsIndex : statusIndex;
 }
 
-function calculateLeaderboard(rows, prefix = "") {
-  const nameIndex = Number($(columnElementId(prefix, "name")).value);
-  const statusIndex = Number($(columnElementId(prefix, "status")).value);
-  const grindsIndex = Number($(columnElementId(prefix, "grinds")).value);
+function calculateLeaderboard(rows) {
+  const nameIndex = Number($("nameCol").value);
+  const statusIndex = Number($("statusCol").value);
+  const grindsIndex = Number($("grindsCol").value);
 
   const counters = new Map();
 
@@ -315,20 +290,11 @@ function calculateLeaderboard(rows, prefix = "") {
     });
 }
 
-function calculatePeriodLeaderboard(sheets, allowedNames = null, excludedNames = null, prefix = "") {
+function calculatePeriodLeaderboard(sheets) {
   const totals = new Map();
 
   for (const sheet of sheets || []) {
-    for (const item of calculateLeaderboard(sheet.rows || [], prefix)) {
-      const normalizedName = normalizeCollectorName(item.name);
-
-      if (allowedNames && !allowedNames.has(normalizedName)) {
-        continue;
-      }
-
-      if (excludedNames && excludedNames.has(normalizedName)) {
-        continue;
-      }
+    for (const item of calculateLeaderboard(sheet.rows || [])) {
       const current = totals.get(item.name) || {
         collected: 0,
         grinds: 0
@@ -362,18 +328,10 @@ function calculatePeriodLeaderboard(sheets, allowedNames = null, excludedNames =
     });
 }
 
-function renderLeaderboard(periodId, groupId = "im") {
-  const periodElement = document.querySelector(`[data-group="${groupId}"][data-period="${periodId}"]`);
+function renderLeaderboard(periodId) {
+  const periodElement = document.querySelector(`[data-period="${periodId}"]`);
   const period = state.periods[periodId];
-  const sheets = period.groupSheets[groupId] || [];
-  const prefix = groupId === "mp" ? "mp" : "";
-  const allowedNames = groupId === "mp"
-    ? new Set([...mpCollectors].map(normalizeCollectorName))
-    : null;
-  const excludedNames = groupId === "im"
-    ? new Set([...mpCollectors].map(normalizeCollectorName))
-    : null;
-  const data = calculatePeriodLeaderboard(sheets, allowedNames, excludedNames, prefix);
+  const data = calculatePeriodLeaderboard(period.sheets);
   const totalGrinds = data.reduce((sum, item) => sum + item.grinds, 0);
 
   periodElement.querySelector(".total").textContent = `Сборщиков: ${data.length}`;
@@ -428,13 +386,12 @@ function renderLeaderboard(periodId, groupId = "im") {
 }
 
 function renderDataInfo() {
-  const getColumnItems = (prefix, source) => {
-    const columnName = (index) => state.headers[source][index] || `Столбец ${index + 1}`;
-    return [
-      `Сборщик: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "name")).value)))}</strong>`,
-      `Статус: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "status")).value)))}</strong>`,
-      `Помолы: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "grinds")).value)))}</strong>`
-    ];
+  const columnName = (index) => {
+    if (!Number.isInteger(index) || index < 0) {
+      return "Не выбран";
+    }
+
+    return state.headers[index] || `Столбец ${index + 1}`;
   };
   const periods = [
     ["day", "За день"],
@@ -446,26 +403,17 @@ function renderDataInfo() {
     <div class="info-block">
       <h3>Столбцы</h3>
       <ul>
-        ${getColumnItems("", "im").map((item) => `<li>${item}</li>`).join("")}
-      </ul>
-    </div>
-    <div class="info-block">
-      <h3>Столбцы МП</h3>
-      <ul>
-        ${getColumnItems("mp", "mp").map((item) => `<li>${item}</li>`).join("")}
+        <li>Сборщик: <strong>${escapeHtml(columnName(Number($("nameCol").value)))}</strong></li>
+        <li>Статус: <strong>${escapeHtml(columnName(Number($("statusCol").value)))}</strong></li>
+        <li>Помолы: <strong>${escapeHtml(columnName(Number($("grindsCol").value)))}</strong></li>
       </ul>
     </div>
     ${periods.map(([periodId, title]) => {
-    const names = state.periods[periodId].sourceNames?.im || [];
-    const mpNames = state.periods[periodId].sourceNames?.mp || [];
+    const names = state.periods[periodId].sourceNames || [];
     return `
         <div class="info-block">
-          <h3>${title}, ИМ</h3>
+          <h3>${title}</h3>
           <p>${names.length ? escapeHtml(names.join(", ")) : "Листы не найдены"}</p>
-        </div>
-        <div class="info-block">
-          <h3>${title}, МП</h3>
-          <p>${mpNames.length ? escapeHtml(mpNames.join(", ")) : "Лист «ОПТ и МП» не найден"}</p>
         </div>
       `;
   }).join("")}
@@ -599,53 +547,12 @@ async function fetchWorkbook(url) {
   return sheets;
 }
 
-async function fetchMpSheet(url) {
-  const gid = (url.match(/[?#&]gid=(\d+)/) || [])[1];
-
-  if (!gid) {
-    const sheets = await fetchWorkbook(url);
-    const namedSheet = sheets.get(mpSheetName);
-
-    if (!namedSheet) {
-      throw new Error(`В базе МП не найден лист «${mpSheetName}».`);
-    }
-
-    return namedSheet;
-  }
-
-  const response = await fetchPublicData(parseTabUrl(url), "вкладку МП");
-
-  if (!response.ok) {
-    throw new Error("Вкладка МП недоступна. Проверьте доступ по ссылке.");
-  }
-
-  const data = parseCSV(await response.text());
-
-  if (data.length < 1) {
-    throw new Error("Вкладка МП пустая.");
-  }
-
-  return { headers: data[0], rows: data.slice(1) };
-}
-
 async function fetchAllPeriods(silent = false) {
-  if (!state.urls.im) {
+  if (!state.url) {
     return;
   }
 
-  const imSheets = await fetchWorkbook(state.urls.im);
-  let mpSheet = null;
-
-  if (state.urls.mp) {
-    try {
-      mpSheet = await fetchMpSheet(state.urls.mp);
-    } catch (error) {
-      if (!silent) {
-        showError("База МП недоступна. Статистика ИМ продолжит работать.");
-      }
-    }
-  }
-  const sheets = imSheets;
+  const sheets = await fetchWorkbook(state.url);
   const availableSheet = [...sheets.values()][0];
 
   if (!availableSheet) {
@@ -660,16 +567,10 @@ async function fetchAllPeriods(silent = false) {
     return;
   }
 
-  if (!state.columnsInitialized.im) {
-    state.headers.im = availableSheet.headers;
-    fillColumnSelects(state.headers.im);
-    state.columnsInitialized.im = true;
-  }
-
-  if (!state.columnsInitialized.mp && mpSheet) {
-    state.headers.mp = mpSheet.headers;
-    fillColumnSelects(state.headers.mp, "mp");
-    state.columnsInitialized.mp = true;
+  if (!state.columnsInitialized) {
+    state.headers = availableSheet.headers;
+    fillColumnSelects(state.headers);
+    state.columnsInitialized = true;
   }
 
   Object.entries(state.periods).forEach(([periodId, period]) => {
@@ -679,70 +580,18 @@ async function fetchAllPeriods(silent = false) {
       .map((sheetName) => sheets.get(sheetName))
       .filter(Boolean);
 
-    const dateSourceNames = periodNames.filter((sheetName) => sheets.has(sheetName));
     period.sheets = periodSheets;
-    period.groupSheets = {
-      im: periodSheets,
-      mp: mpSheet ? [mpSheet] : []
-    };
-    period.sourceNames = {
-      im: dateSourceNames,
-      mp: mpSheet ? [mpSheetName] : []
-    };
-    ["im", "mp"].forEach((groupId) => {
-      renderLeaderboard(periodId, groupId);
-      document.querySelector(`[data-group="${groupId}"][data-period="${periodId}"] .updated`).textContent =
-        groupId === "mp" && !mpSheet
-          ? "База МП не подключена"
-          : "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
-    });
+    period.sourceNames = periodNames.filter((sheetName) => sheets.has(sheetName));
+
+    renderLeaderboard(periodId);
+    document.querySelector(`[data-period="${periodId}"] .updated`).textContent =
+      "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
   });
-}
-
-async function loadMpTable() {
-  clearError();
-  const url = $("mpSheetUrl").value.trim();
-
-  if (!url) {
-    showError("Укажите ссылку на базу МП.");
-    return;
-  }
-
-  $("loadMpBtn").disabled = true;
-  $("loadMpBtn").textContent = "Загрузка…";
-  state.urls.mp = url;
-  localStorage.setItem(savedMpUrlKey, url);
-
-  try {
-    const mpSheet = await fetchMpSheet(url);
-
-    state.headers.mp = mpSheet.headers;
-    fillColumnSelects(state.headers.mp, "mp");
-    state.columnsInitialized.mp = true;
-
-    Object.values(state.periods).forEach((period) => {
-      period.groupSheets.mp = [mpSheet];
-      period.sourceNames = period.sourceNames || {};
-      period.sourceNames.mp = [mpSheetName];
-    });
-
-    ["day", "week", "month"].forEach((periodId) => {
-      renderLeaderboard(periodId, "mp");
-      document.querySelector(`[data-group="mp"][data-period="${periodId}"] .updated`).textContent =
-        "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
-    });
-  } catch (error) {
-    showError(error.message || "Не удалось загрузить базу МП.");
-  }
-
-  $("loadMpBtn").disabled = false;
-  $("loadMpBtn").textContent = "Обновить МП";
 }
 
 async function loadTable() {
   clearError();
   const url = $("sheetUrl").value.trim();
-  const mpUrl = $("mpSheetUrl").value.trim();
 
   if (!url) {
     showError("Укажите ссылку на базу ИМ.");
@@ -752,20 +601,13 @@ async function loadTable() {
   $("loadBtn").disabled = true;
   $("loadBtn").textContent = "Загрузка…";
 
-  state.urls.im = url;
-  state.urls.mp = mpUrl;
+  state.url = url;
   localStorage.setItem(savedUrlKey, url);
-
-  if (mpUrl) {
-    localStorage.setItem(savedMpUrlKey, mpUrl);
-  } else {
-    localStorage.removeItem(savedMpUrlKey);
-  }
 
   state.dateFormat = $("dateFormat").value.trim() || "DD.MM.YYYY";
   localStorage.setItem(`${savedUrlKey}-date-format`, state.dateFormat);
 
-  state.columnsInitialized = { im: false, mp: false };
+  state.columnsInitialized = false;
 
   try {
     await fetchAllPeriods(false);
@@ -782,18 +624,13 @@ async function loadTable() {
   }
 
   $("loadBtn").disabled = false;
-  $("loadBtn").textContent = "Загрузить";
+  $("loadBtn").textContent = "Обновить";
 }
 
 const savedUrl = localStorage.getItem(savedUrlKey);
-const savedMpUrl = localStorage.getItem(savedMpUrlKey);
 
 if (savedUrl) {
   $("sheetUrl").value = savedUrl;
-}
-
-if (savedMpUrl) {
-  $("mpSheetUrl").value = savedMpUrl;
 }
 
 Object.keys(state.periods).forEach((periodId) => {
@@ -808,7 +645,6 @@ if (savedDateFormat) {
 }
 
 $("loadBtn").addEventListener("click", loadTable);
-$("loadMpBtn").addEventListener("click", loadMpTable);
 $("loadTabBtn").addEventListener("click", loadTabStatistics);
 $("loginForm").addEventListener("submit", login);
 $("adminLoginBtn").addEventListener("click", openLogin);
@@ -824,22 +660,16 @@ $("logoutBtn").addEventListener("click", () => {
 });
 $("changeDbBtn").addEventListener("click", () => {
   $("sheetUrl").disabled = false;
-  $("mpSheetUrl").disabled = false;
   $("sheetUrl").focus();
   $("sheetUrl").select();
 });
 const renderAllGroups = () => {
-  Object.keys(state.periods).forEach((periodId) => {
-    ["im", "mp"].forEach((groupId) => renderLeaderboard(periodId, groupId));
-  });
+  Object.keys(state.periods).forEach((periodId) => renderLeaderboard(periodId));
 };
 
 $("nameCol").addEventListener("change", renderAllGroups);
 $("statusCol").addEventListener("change", renderAllGroups);
 $("grindsCol").addEventListener("change", renderAllGroups);
-$("mpNameCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
-$("mpStatusCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
-$("mpGrindsCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
 $("tabNameCol").addEventListener("change", renderTabStatistics);
 $("tabStatusCol").addEventListener("change", renderTabStatistics);
 $("tabPositionsCol").addEventListener("change", renderTabStatistics);
@@ -859,7 +689,7 @@ document.querySelectorAll(".sort-button").forEach((button) => {
 const isAdmin = localStorage.getItem(adminAuthKey) === "true";
 setAdminMode(isAdmin);
 
-if (savedUrl && isAdmin) {
+if (savedUrl) {
   loadTable();
 }
 const savedTabUrl = localStorage.getItem(savedTabUrlKey);

@@ -80,41 +80,7 @@
 
       <p class="hint">
         Формат даты задаётся в поле выше. Каждый непустой помол считается отдельно.
-        Для «Сборка МП» ежедневно учитываются только одноимённые строки ОЗОН ФБС, ВБ ФБС и ЯНДЕКС ФБС.
       </p>
-    </section>
-
-    <section class="card settings admin-only">
-      <h2>Настройки «Сборка МП»</h2>
-      <div class="form-grid">
-        <div class="field field-url">
-          <label for="mpSheetUrl">Ссылка на вкладку «ОПТ и МП» (необязательно)</label>
-          <input id="mpSheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=123456">
-        </div>
-        <div class="field">
-          <label for="mpNameCol">Столбец со сборщиком</label>
-          <select id="mpNameCol" disabled>
-            <option>Сначала загрузите базу МП</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="mpStatusCol">Столбец со статусом</label>
-          <select id="mpStatusCol" disabled>
-            <option>Сначала загрузите базу МП</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="mpGrindsCol">Столбец с помолами</label>
-          <select id="mpGrindsCol" disabled>
-            <option>Сначала загрузите базу МП</option>
-          </select>
-        </div>
-        <div class="form-actions">
-          <button id="loadMpBtn" type="button">Обновить МП</button>
-        </div>
-      </div>
-      <p class="hint">Для МП используется только лист «ОПТ и МП». В расчёт попадают строки ОЗОН ФБС, ВБ ФБС и ЯНДЕКС
-        ФБС.</p>
     </section>
 
     <div id="error" class="error" role="alert"></div>
@@ -221,63 +187,6 @@
         </section>
       </div>
 
-      <div class="leaderboards" data-group="mp">
-        <h2 class="leaderboards-title">Сборка МП</h2>
-        <section class="card leaderboard" data-group="mp" data-period="day">
-          <div class="period-header">
-            <div>
-              <h2>За день</h2>
-              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
-            </div>
-            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
-          </div>
-          <div class="table-head">
-            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
-              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
-              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
-              data-sort="score">Общий счёт</button>
-          </div>
-          <div class="rows">
-            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
-          </div>
-        </section>
-        <section class="card leaderboard" data-group="mp" data-period="week">
-          <div class="period-header">
-            <div>
-              <h2>За 7 дней</h2>
-              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
-            </div>
-            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
-          </div>
-          <div class="table-head">
-            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
-              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
-              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
-              data-sort="score">Общий счёт</button>
-          </div>
-          <div class="rows">
-            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
-          </div>
-        </section>
-        <section class="card leaderboard" data-group="mp" data-period="month">
-          <div class="period-header">
-            <div>
-              <h2>За 30 дней</h2>
-              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
-            </div>
-            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
-          </div>
-          <div class="table-head">
-            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
-              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
-              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
-              data-sort="score">Общий счёт</button>
-          </div>
-          <div class="rows">
-            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
-          </div>
-        </section>
-      </div>
 
       <aside class="card data-info admin-only">
         <h2>Источники расчёта</h2>
