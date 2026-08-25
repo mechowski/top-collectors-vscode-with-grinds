@@ -1,7 +1,13 @@
 const state = {
   url: "",
   headers: [],
-  rows: [],
+  periods: {
+    day: { days: 1, rows: [] },
+    week: { days: 7, rows: [] },
+    month: { days: 30, rows: [] }
+  },
+  dateFormat: "DD.MM.YYYY",
+  columnsInitialized: false,
   timer: null,
   sortKey: "score",
   sortDirection: "desc"
@@ -40,7 +46,7 @@ function isCollectorName(name) {
     /^[\p{L}][\p{L}'’-]*(?:[\s-]+[\p{L}][\p{L}'’-]*)*$/u.test(name);
 }
 
-function parseSheetUrl(url) {
+function parseSheetUrl(url, sheetName) {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
 
   if (!match) {
@@ -48,9 +54,31 @@ function parseSheetUrl(url) {
   }
 
   const spreadsheetId = match[1];
-  const gid = (url.match(/[?#&]gid=(\d+)/) || [])[1] || "0";
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
 
-  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+function formatDateSheetName(date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+
+  return state.dateFormat
+    .replace(/DD/g, day)
+    .replace(/MM/g, month)
+    .replace(/YYYY/g, year);
+}
+
+function getDateSheetNames(days) {
+  const names = [];
+  const date = new Date();
+
+  for (let offset = 0; offset < days; offset++) {
+    const sheetDate = new Date(date);
+    sheetDate.setDate(date.getDate() - offset);
+    names.push(formatDateSheetName(sheetDate));
+  }
+
+  return names;
 }
 
 function parseCSV(text) {
@@ -148,14 +176,14 @@ function fillColumnSelects(headers) {
   $("grindsCol").value = grindsIndex >= 0 ? grindsIndex : statusIndex;
 }
 
-function calculateLeaderboard() {
+function calculateLeaderboard(rows) {
   const nameIndex = Number($("nameCol").value);
   const statusIndex = Number($("statusCol").value);
   const grindsIndex = Number($("grindsCol").value);
 
   const counters = new Map();
 
-  for (const row of state.rows) {
+  for (const row of rows) {
     const name = (row[nameIndex] || "").trim();
     const status = (row[statusIndex] || "").trim().toLowerCase();
     const grindsValue = (row[grindsIndex] || "").trim();
@@ -201,14 +229,15 @@ function calculateLeaderboard() {
     });
 }
 
-function renderLeaderboard() {
-  const data = calculateLeaderboard();
+function renderLeaderboard(periodId) {
+  const periodElement = document.querySelector(`[data-period="${periodId}"]`);
+  const data = calculateLeaderboard(state.periods[periodId].rows);
   const totalGrinds = data.reduce((sum, item) => sum + item.grinds, 0);
 
-  $("total").textContent = `Сборщиков: ${data.length}`;
-  $("totalGrinds").textContent = `Всего помолов: ${totalGrinds}`;
+  periodElement.querySelector(".total").textContent = `Сборщиков: ${data.length}`;
+  periodElement.querySelector(".totalGrinds").textContent = `Всего помолов: ${totalGrinds}`;
 
-  document.querySelectorAll(".sort-button").forEach((button) => {
+  periodElement.querySelectorAll(".sort-button").forEach((button) => {
     const isActive = button.dataset.sort === state.sortKey;
     button.classList.toggle("active", isActive);
     button.dataset.direction = isActive ? state.sortDirection : "";
@@ -218,7 +247,7 @@ function renderLeaderboard() {
   });
 
   if (!data.length) {
-    $("rows").innerHTML =
+    periodElement.querySelector(".rows").innerHTML =
       '<div class="empty">Нет данных для отображения.</div>';
     return;
   }
@@ -237,7 +266,7 @@ function renderLeaderboard() {
       previousPlace = place;
     });
 
-  $("rows").innerHTML = data.map((item, index) => {
+  periodElement.querySelector(".rows").innerHTML = data.map((item) => {
     const place = scorePlaces.get(item.name);
     const medal = place === 1 ? "🥇 " :
       place === 2 ? "🥈 " :
@@ -255,61 +284,79 @@ function renderLeaderboard() {
   }).join("");
 }
 
-async function fetchTable(silent = false) {
-  clearError();
+async function fetchSheet(sheetName) {
+  const csvUrl = parseSheetUrl(state.url, sheetName);
+  const response = await fetch(csvUrl, { cache: "no-store" });
 
+  if (!response.ok) {
+    throw new Error("Лист недоступен");
+  }
+
+  const text = await response.text();
+
+  if (text.trim().startsWith("<!DOCTYPE") || text.includes("Sign in")) {
+    throw new Error("Таблица закрыта");
+  }
+
+  const data = parseCSV(text);
+
+  if (data.length < 2) {
+    throw new Error("Лист пуст или не найден");
+  }
+
+  return { headers: data[0], rows: data.slice(1) };
+}
+
+async function fetchAllPeriods(silent = false) {
   if (!state.url) {
     return;
   }
 
-  try {
-    const csvUrl = parseSheetUrl(state.url);
-    const response = await fetch(csvUrl, { cache: "no-store" });
+  const sheetNames = getDateSheetNames(30);
+  const results = await Promise.all(
+    sheetNames.map(async (sheetName) => {
+      try {
+        return [sheetName, await fetchSheet(sheetName)];
+      } catch {
+        return [sheetName, null];
+      }
+    })
+  );
+  const sheets = new Map(results);
+  const availableSheet = results.find(([, sheet]) => sheet);
 
-    if (!response.ok) {
-      throw new Error(
-        "Google Таблица недоступна. Проверьте, что она открыта для просмотра по ссылке."
-      );
-    }
-
-    const text = await response.text();
-
-    if (
-      text.trim().startsWith("<!DOCTYPE") ||
-      text.includes("Sign in")
-    ) {
-      throw new Error(
-        "Таблица закрыта. Откройте доступ «Все, у кого есть ссылка — читатель»."
-      );
-    }
-
-    const data = parseCSV(text);
-
-    if (data.length < 2) {
-      throw new Error("В таблице не найдено данных.");
-    }
-
-    state.headers = data[0];
-    state.rows = data.slice(1);
+  if (!availableSheet) {
+    Object.keys(state.periods).forEach((periodId) => {
+      document.querySelector(`[data-period="${periodId}"] .updated`).textContent = "Лист не найден";
+    });
 
     if (!silent) {
-      fillColumnSelects(state.headers);
+      showError("Не найдено листов с датами. Проверьте формат даты и доступ таблицы.");
     }
 
-    renderLeaderboard();
-
-    $("updated").textContent =
-      "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
-  } catch (error) {
-    $("updated").textContent = "Ошибка обновления";
-
-    if (!silent) {
-      showError(error.message || "Ошибка загрузки данных.");
-    }
+    return;
   }
+
+  if (!state.columnsInitialized) {
+    state.headers = availableSheet[1].headers;
+    fillColumnSelects(state.headers);
+    state.columnsInitialized = true;
+  }
+
+  Object.entries(state.periods).forEach(([periodId, period]) => {
+    const periodSheets = getDateSheetNames(period.days)
+      .map((sheetName) => sheets.get(sheetName))
+      .filter(Boolean);
+
+    period.rows = periodSheets.flatMap((sheet) => sheet.rows);
+    renderLeaderboard(periodId);
+    document.querySelector(`[data-period="${periodId}"] .updated`).textContent =
+      "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
+  });
 }
 
 async function loadTable() {
+  clearError();
   const url = $("sheetUrl").value.trim();
 
   if (!url) {
@@ -323,13 +370,20 @@ async function loadTable() {
   state.url = url;
   localStorage.setItem(savedUrlKey, url);
 
-  await fetchTable(false);
+  state.dateFormat = $("dateFormat").value.trim() || "DD.MM.YYYY";
+  localStorage.setItem(`${savedUrlKey}-date-format`, state.dateFormat);
+
+  state.columnsInitialized = false;
+
+  await fetchAllPeriods(false);
 
   if (state.timer) {
     clearInterval(state.timer);
   }
 
-  state.timer = setInterval(() => fetchTable(true), 15000);
+  state.timer = setInterval(() => {
+    fetchAllPeriods(true);
+  }, 15000);
 
   $("loadBtn").disabled = false;
   $("loadBtn").textContent = "Загрузить";
@@ -341,10 +395,21 @@ if (savedUrl) {
   $("sheetUrl").value = savedUrl;
 }
 
+Object.keys(state.periods).forEach((periodId) => {
+  state.periods[periodId].rows = [];
+});
+
+const savedDateFormat = localStorage.getItem(`${savedUrlKey}-date-format`);
+
+if (savedDateFormat) {
+  state.dateFormat = savedDateFormat;
+  $("dateFormat").value = savedDateFormat;
+}
+
 $("loadBtn").addEventListener("click", loadTable);
-$("nameCol").addEventListener("change", renderLeaderboard);
-$("statusCol").addEventListener("change", renderLeaderboard);
-$("grindsCol").addEventListener("change", renderLeaderboard);
+$("nameCol").addEventListener("change", () => Object.keys(state.periods).forEach(renderLeaderboard));
+$("statusCol").addEventListener("change", () => Object.keys(state.periods).forEach(renderLeaderboard));
+$("grindsCol").addEventListener("change", () => Object.keys(state.periods).forEach(renderLeaderboard));
 document.querySelectorAll(".sort-button").forEach((button) => {
   button.addEventListener("click", () => {
     if (state.sortKey === button.dataset.sort) {
@@ -354,6 +419,6 @@ document.querySelectorAll(".sort-button").forEach((button) => {
       state.sortDirection = button.dataset.sort === "name" ? "asc" : "desc";
     }
 
-    renderLeaderboard();
+    Object.keys(state.periods).forEach(renderLeaderboard);
   });
 });

@@ -47,44 +47,84 @@
           </select>
         </div>
 
+        <div class="field field-date-format">
+          <label for="dateFormat">Формат названия листов</label>
+          <input id="dateFormat" type="text" value="DD.MM.YYYY" placeholder="DD.MM.YYYY">
+        </div>
+
         <button id="loadBtn" type="button">Загрузить</button>
       </div>
 
       <p class="hint">
-        После загрузки таблицы выберите столбец с фамилией, статусом и помолами.
-        Сайт считает количество строк со статусом «Собран» и каждую непустую ячейку в столбце помолов отдельно для
-        каждого сборщика.
+        Листы должны называться датами. Сайт сам загрузит сегодняшний лист, а также объединит листы за последние 7 и 30
+        дней.
+        Формат даты задаётся в поле выше. Каждый непустой помол считается отдельно.
       </p>
     </section>
 
     <div id="error" class="error" role="alert"></div>
 
-    <div class="statusbar">
-      <div class="live">
-        <span class="dot"></span>
-        <span id="updated">Ожидание подключения</span>
-      </div>
-      <div class="totals">
-        <span id="total"></span>
-        <span id="totalGrinds"></span>
-      </div>
-    </div>
-
-    <section class="card leaderboard">
-      <div class="table-head">
-        <div>Место</div>
-        <button class="sort-button" type="button" data-sort="name">Сборщик</button>
-        <button class="sort-button" type="button" data-sort="collected">Собран</button>
-        <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
-        <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
-      </div>
-
-      <div id="rows">
-        <div class="empty">
-          Подключите Google Таблицу, чтобы увидеть рейтинг.
+    <div class="leaderboards">
+      <section class="card leaderboard" data-period="day">
+        <div class="period-header">
+          <div>
+            <h2>За день</h2>
+            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+          </div>
+          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
         </div>
-      </div>
-    </section>
+        <div class="table-head">
+          <div>Место</div>
+          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+          <button class="sort-button" type="button" data-sort="collected">Собран</button>
+          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+        </div>
+        <div class="rows">
+          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+        </div>
+      </section>
+
+      <section class="card leaderboard" data-period="week">
+        <div class="period-header">
+          <div>
+            <h2>За 7 дней</h2>
+            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+          </div>
+          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+        </div>
+        <div class="table-head">
+          <div>Место</div>
+          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+          <button class="sort-button" type="button" data-sort="collected">Собран</button>
+          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+        </div>
+        <div class="rows">
+          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+        </div>
+      </section>
+
+      <section class="card leaderboard" data-period="month">
+        <div class="period-header">
+          <div>
+            <h2>За 30 дней</h2>
+            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+          </div>
+          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+        </div>
+        <div class="table-head">
+          <div>Место</div>
+          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+          <button class="sort-button" type="button" data-sort="collected">Собран</button>
+          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+        </div>
+        <div class="rows">
+          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+        </div>
+      </section>
+    </div>
 
     <p class="footer">
       После подключения данные обновляются автоматически каждые 15 секунд.

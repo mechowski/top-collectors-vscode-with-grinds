@@ -55,6 +55,11 @@ body {
   margin-bottom: 22px;
 }
 
+.leaderboards {
+  display: grid;
+  gap: 22px;
+}
+
 .settings h2 {
   margin: 0 0 16px;
   font-size: 20px;
@@ -159,6 +164,19 @@ button:disabled {
   overflow: hidden;
 }
 
+.period-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+}
+
+.period-header h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
 .table-head,
 .row {
   display: grid;
@@ -247,6 +265,16 @@ button:disabled {
 
   .settings {
     padding: 16px;
+  }
+
+  .period-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px 12px;
+  }
+
+  .period-header .totals {
+    justify-content: flex-start;
   }
 
   .table-head,
