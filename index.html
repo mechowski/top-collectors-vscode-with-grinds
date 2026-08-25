@@ -9,20 +9,40 @@
 </head>
 
 <body>
+  <section id="loginPanel" class="login-panel" aria-hidden="true">
+    <form id="loginForm" class="card login-card">
+      <button id="closeLoginBtn" class="close-login" type="button" aria-label="Закрыть">×</button>
+      <h1>Вход администратора</h1>
+      <p>Введите данные для доступа к настройкам таблицы.</p>
+      <div class="field">
+        <label for="loginName">Логин</label>
+        <input id="loginName" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Пароль</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <p id="loginError" class="login-error" role="alert"></p>
+      <button type="submit">Войти</button>
+    </form>
+  </section>
+
   <main class="container">
     <header class="page-header">
       <div>
         <h1>Топ сборщиков</h1>
         <p>Рейтинг рассчитывается автоматически из Google Таблицы</p>
       </div>
+      <button id="adminLoginBtn" class="admin-login-button" type="button">Админ</button>
+      <button id="logoutBtn" class="secondary-button admin-only" type="button">Выйти</button>
     </header>
 
-    <section class="card settings">
-      <h2>Подключение Google Таблицы</h2>
+    <section class="card settings admin-only">
+      <h2>Настройки «Сборка ИМ»</h2>
 
       <div class="form-grid">
         <div class="field field-url">
-          <label for="sheetUrl">Ссылка на Google Таблицу</label>
+          <label for="sheetUrl">Ссылка на базу ИМ</label>
           <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/...">
         </div>
 
@@ -52,78 +72,219 @@
           <input id="dateFormat" type="text" value="DD.MM.YYYY" placeholder="DD.MM.YYYY">
         </div>
 
-        <button id="loadBtn" type="button">Загрузить</button>
+        <div class="form-actions">
+          <button id="loadBtn" type="button">Обновить</button>
+          <button id="changeDbBtn" class="secondary-button" type="button">Изменить базы</button>
+        </div>
       </div>
 
       <p class="hint">
-        Листы должны называться датами. Сайт сам загрузит сегодняшний лист, а также объединит листы за последние 7 и 30
-        дней.
         Формат даты задаётся в поле выше. Каждый непустой помол считается отдельно.
+        Для «Сборка МП» ежедневно учитываются только одноимённые строки ОЗОН ФБС, ВБ ФБС и ЯНДЕКС ФБС.
       </p>
+    </section>
+
+    <section class="card settings admin-only">
+      <h2>Настройки «Сборка МП»</h2>
+      <div class="form-grid">
+        <div class="field field-url">
+          <label for="mpSheetUrl">Ссылка на вкладку «ОПТ и МП» (необязательно)</label>
+          <input id="mpSheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=123456">
+        </div>
+        <div class="field">
+          <label for="mpNameCol">Столбец со сборщиком</label>
+          <select id="mpNameCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="mpStatusCol">Столбец со статусом</label>
+          <select id="mpStatusCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="mpGrindsCol">Столбец с помолами</label>
+          <select id="mpGrindsCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button id="loadMpBtn" type="button">Обновить МП</button>
+        </div>
+      </div>
+      <p class="hint">Для МП используется только лист «ОПТ и МП». В расчёт попадают строки ОЗОН ФБС, ВБ ФБС и ЯНДЕКС
+        ФБС.</p>
     </section>
 
     <div id="error" class="error" role="alert"></div>
 
-    <div class="leaderboards">
-      <section class="card leaderboard" data-period="day">
-        <div class="period-header">
-          <div>
-            <h2>За день</h2>
-            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
-          </div>
-          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+    <section class="card tab-statistics admin-only">
+      <div class="section-heading">
+        <div>
+          <h2>Статистика по вкладке</h2>
+          <p>Вставьте ссылку на конкретную вкладку Google Таблицы.</p>
         </div>
-        <div class="table-head">
-          <div>Место</div>
-          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
-          <button class="sort-button" type="button" data-sort="collected">Собран</button>
-          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
-          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+        <button id="loadTabBtn" type="button">Загрузить вкладку</button>
+      </div>
+      <div class="tab-form">
+        <div class="field tab-url-field">
+          <label for="tabUrl">Ссылка на вкладку</label>
+          <input id="tabUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=123456">
         </div>
-        <div class="rows">
-          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+        <div class="field">
+          <label for="tabNameCol">Столбец со сборщиком</label>
+          <select id="tabNameCol" disabled>
+            <option>Сначала загрузите вкладку</option>
+          </select>
         </div>
-      </section>
+        <div class="field">
+          <label for="tabStatusCol">Столбец со статусом</label>
+          <select id="tabStatusCol" disabled>
+            <option>Сначала загрузите вкладку</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tabPositionsCol">Столбец «Кол-во позиций»</label>
+          <select id="tabPositionsCol" disabled>
+            <option>Сначала загрузите вкладку</option>
+          </select>
+        </div>
+      </div>
+      <div id="tabStatus" class="tab-status">Вкладка ещё не загружена.</div>
+      <div id="tabRows" class="tab-rows">
+        <div class="empty">Загрузите вкладку, чтобы увидеть количество позиций.</div>
+      </div>
+    </section>
 
-      <section class="card leaderboard" data-period="week">
-        <div class="period-header">
-          <div>
-            <h2>За 7 дней</h2>
-            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+    <div class="dashboard-grid">
+      <div class="leaderboards" data-group="im">
+        <h2 class="leaderboards-title">Сборка ИМ</h2>
+        <section class="card leaderboard" data-group="im" data-period="day">
+          <div class="period-header">
+            <div>
+              <h2>За день</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
           </div>
-          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
-        </div>
-        <div class="table-head">
-          <div>Место</div>
-          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
-          <button class="sort-button" type="button" data-sort="collected">Собран</button>
-          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
-          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
-        </div>
-        <div class="rows">
-          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
-        </div>
-      </section>
+          <div class="table-head">
+            <div>Место</div>
+            <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+            <button class="sort-button" type="button" data-sort="collected">Собран</button>
+            <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+            <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
 
-      <section class="card leaderboard" data-period="month">
-        <div class="period-header">
-          <div>
-            <h2>За 30 дней</h2>
-            <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+        <section class="card leaderboard" data-group="im" data-period="week">
+          <div class="period-header">
+            <div>
+              <h2>За 7 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
           </div>
-          <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          <div class="table-head">
+            <div>Место</div>
+            <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+            <button class="sort-button" type="button" data-sort="collected">Собран</button>
+            <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+            <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+
+        <section class="card leaderboard" data-group="im" data-period="month">
+          <div class="period-header">
+            <div>
+              <h2>За 30 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div>
+            <button class="sort-button" type="button" data-sort="name">Сборщик</button>
+            <button class="sort-button" type="button" data-sort="collected">Собран</button>
+            <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
+            <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="leaderboards" data-group="mp">
+        <h2 class="leaderboards-title">Сборка МП</h2>
+        <section class="card leaderboard" data-group="mp" data-period="day">
+          <div class="period-header">
+            <div>
+              <h2>За день</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+        <section class="card leaderboard" data-group="mp" data-period="week">
+          <div class="period-header">
+            <div>
+              <h2>За 7 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+        <section class="card leaderboard" data-group="mp" data-period="month">
+          <div class="period-header">
+            <div>
+              <h2>За 30 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="card data-info admin-only">
+        <h2>Источники расчёта</h2>
+        <div id="dataInfoContent">
+          <p class="info-note">Загрузите таблицу, чтобы увидеть листы и столбцы расчёта.</p>
         </div>
-        <div class="table-head">
-          <div>Место</div>
-          <button class="sort-button" type="button" data-sort="name">Сборщик</button>
-          <button class="sort-button" type="button" data-sort="collected">Собран</button>
-          <button class="sort-button" type="button" data-sort="grinds">Помолы</button>
-          <button class="sort-button" type="button" data-sort="score">Общий счёт</button>
-        </div>
-        <div class="rows">
-          <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
-        </div>
-      </section>
+      </aside>
     </div>
 
     <p class="footer">
@@ -131,6 +292,7 @@
     </p>
   </main>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 
