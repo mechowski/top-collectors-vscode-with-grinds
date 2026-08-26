@@ -661,9 +661,47 @@ async function loadTabStatistics() {
   }
 }
 
+async function fetchCsvSheet(url, sheetName, sourceName) {
+  const response = await fetchPublicData(parseSheetUrl(url, sheetName), sourceName);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = parseCSV(await response.text());
+
+  if (data.length < 1) {
+    return null;
+  }
+
+  return { headers: data[0], rows: data.slice(1) };
+}
+
+function getAllPeriodSheetNames() {
+  return [...new Set(Object.entries(state.periods).flatMap(([periodId, period]) => {
+    const periodRange = periodId === "week" ? "currentWeek" : period.days;
+    return getDateSheetNames(periodRange);
+  }))];
+}
+
+async function fetchWorkbookFromCsv(url) {
+  const sheets = new Map();
+  const sheetNames = getAllPeriodSheetNames();
+
+  await Promise.all(sheetNames.map(async (sheetName) => {
+    const sheet = await fetchCsvSheet(url, sheetName, `лист «${sheetName}»`);
+
+    if (sheet) {
+      sheets.set(sheetName, sheet);
+    }
+  }));
+
+  return sheets;
+}
+
 async function fetchWorkbook(url) {
   if (!window.XLSX) {
-    throw new Error("Не загрузилась библиотека чтения Google Таблицы.");
+    return fetchWorkbookFromCsv(url);
   }
 
   const response = await fetchPublicData(parseExportUrl(url), "Google Таблицу");
@@ -692,19 +730,19 @@ async function fetchWorkbook(url) {
 
 async function fetchMpSheet(url) {
   const gid = (url.match(/[?#&]gid=(\d+)/) || [])[1];
+  const sheet = gid
+    ? await fetchTabSheet(url, "вкладку МП")
+    : await fetchCsvSheet(url, mpSheetName, `лист «${mpSheetName}»`);
 
-  if (!gid) {
-    const sheets = await fetchWorkbook(url);
-    const namedSheet = sheets.get(mpSheetName);
-
-    if (!namedSheet) {
-      throw new Error(`В базе МП не найден лист «${mpSheetName}».`);
-    }
-
-    return namedSheet;
+  if (!sheet) {
+    throw new Error(`В базе МП не найден лист «${mpSheetName}» или он пустой.`);
   }
 
-  const response = await fetchPublicData(parseTabUrl(url), "вкладку МП");
+  return sheet;
+}
+
+async function fetchTabSheet(url, sourceName) {
+  const response = await fetchPublicData(parseTabUrl(url), sourceName);
 
   if (!response.ok) {
     throw new Error("Вкладка МП недоступна. Проверьте доступ по ссылке.");
