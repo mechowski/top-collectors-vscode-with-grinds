@@ -3,23 +3,24 @@ const state = {
     im: "",
     mp: ""
   },
-  headers: { im: [], mp: [] },
+  headers: { im: [], mp: [], opt: [] },
   periods: {
     day: { days: 1, sheets: [], groupSheets: {} },
     week: { days: 7, sheets: [], groupSheets: {} },
     month: { days: 30, sheets: [], groupSheets: {} }
   },
   dateFormat: "DD.MM.YYYY",
-  columnsInitialized: { im: false, mp: false },
+  columnsInitialized: { im: false, mp: false, opt: false },
   timer: null,
   sortKey: "score",
   sortDirection: "desc"
 };
 
 const mpCollectors = new Set(["ОЗОН ФБС", "ВБ ФБС", "ЯНДЕКС ФБС"]);
-const mpSheetName = "МП";
+const mpSheetName = "ОПТ и МП";
 const savedUrlKey = "top-collectors-sheet-url";
 const savedMpUrlKey = "top-collectors-mp-sheet-url";
+const optSheetName = "ОПТ и МП";
 const $ = (id) => document.getElementById(id);
 const adminAuthKey = "top-collectors-admin-auth";
 const savedTabUrlKey = "top-collectors-tab-url";
@@ -33,7 +34,11 @@ function normalizeCollectorName(name) {
 }
 
 function columnElementId(prefix, column) {
-  return prefix ? `mp${column[0].toUpperCase()}${column.slice(1)}Col` : `${column}Col`;
+  if (!prefix) {
+    return `${column}Col`;
+  }
+
+  return `${prefix}${column[0].toUpperCase()}${column.slice(1)}Col`;
 }
 
 function setAdminMode(isAdmin) {
@@ -148,6 +153,14 @@ function formatDateSheetName(date) {
     .replace(/YYYY/g, year);
 }
 
+function formatDateKey(date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+
+  return `${day}.${month}.${year}`;
+}
+
 function getDateSheetNames(days) {
   const names = [];
   const date = new Date();
@@ -162,6 +175,22 @@ function getDateSheetNames(days) {
   }
 
   return names;
+}
+
+function getDateKeys(days) {
+  const keys = [];
+  const date = new Date();
+  const currentWeek = days === "currentWeek";
+  const daysFromMonday = (date.getDay() + 6) % 7;
+  const dateCount = currentWeek ? daysFromMonday + 1 : days;
+
+  for (let offset = 0; offset < dateCount; offset++) {
+    const itemDate = new Date(date);
+    itemDate.setDate(date.getDate() - offset);
+    keys.push(formatDateKey(itemDate));
+  }
+
+  return keys;
 }
 
 function parseCSV(text) {
@@ -231,10 +260,15 @@ function fillColumnSelects(headers, prefix = "") {
   $(columnElementId(prefix, "name")).innerHTML = options;
   $(columnElementId(prefix, "status")).innerHTML = options;
   $(columnElementId(prefix, "grinds")).innerHTML = options;
-
   $(columnElementId(prefix, "name")).disabled = false;
   $(columnElementId(prefix, "status")).disabled = false;
   $(columnElementId(prefix, "grinds")).disabled = false;
+
+  const dateSelect = $(columnElementId(prefix, "date"));
+  if (dateSelect) {
+    dateSelect.innerHTML = options;
+    dateSelect.disabled = false;
+  }
 
   const nameIndex = headers.findIndex((header) =>
     /фам|сборщик|name|surname/i.test(header)
@@ -253,10 +287,16 @@ function fillColumnSelects(headers, prefix = "") {
   }
 
   const grindsIndex = headers.findIndex((header) =>
-    /помол|grind/i.test(header)
+    prefix === "opt"
+      ? /кол-?во|количеств|шт|quantity|qty/i.test(header)
+      : /помол|grind/i.test(header)
   );
+  const dateIndex = headers.findIndex((header) => /дата|date/i.test(header));
 
   $(columnElementId(prefix, "grinds")).value = grindsIndex >= 0 ? grindsIndex : statusIndex;
+  if (dateSelect) {
+    dateSelect.value = dateIndex >= 0 ? dateIndex : 0;
+  }
 }
 
 function calculateLeaderboard(rows, prefix = "") {
@@ -281,11 +321,13 @@ function calculateLeaderboard(rows, prefix = "") {
 
     const counter = counters.get(name);
 
-    if (status === "собран") {
+    const isCollected = status === "собран";
+
+    if (isCollected) {
       counter.collected += 1;
     }
 
-    if (grindsValue) {
+    if (grindsValue && (prefix !== "opt" || isCollected)) {
       const numericGrinds = Number(grindsValue);
       counter.grinds += Number.isFinite(numericGrinds)
         ? Math.max(0, numericGrinds)
@@ -313,6 +355,36 @@ function calculateLeaderboard(rows, prefix = "") {
 
       return a.name.localeCompare(b.name, "ru");
     });
+}
+
+function normalizeDateToken(value) {
+  const match = String(value || "").match(/(^|\D)(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?=\D|$)/);
+
+  if (!match) {
+    return null;
+  }
+
+  const day = Number(match[2]);
+  const month = Number(match[3]);
+  const year = Number(match[4]);
+  const date = new Date(year, month - 1, day);
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  return formatDateKey(date);
+}
+
+function filterRowsByDate(rows, allowedDates, prefix) {
+  const dateSelect = $(columnElementId(prefix, "date"));
+
+  if (!dateSelect || dateSelect.disabled) {
+    return [];
+  }
+
+  const dateIndex = Number(dateSelect.value);
+  return rows.filter((row) => allowedDates.has(normalizeDateToken(row[dateIndex])));
 }
 
 function calculatePeriodLeaderboard(sheets, allowedNames = null, excludedNames = null, prefix = "") {
@@ -366,7 +438,7 @@ function renderLeaderboard(periodId, groupId = "im") {
   const periodElement = document.querySelector(`[data-group="${groupId}"][data-period="${periodId}"]`);
   const period = state.periods[periodId];
   const sheets = period.groupSheets[groupId] || [];
-  const prefix = groupId === "mp" ? "mp" : "";
+  const prefix = groupId === "mp" ? "mp" : groupId === "opt" ? "opt" : "";
   const allowedNames = groupId === "mp"
     ? new Set([...mpCollectors].map(normalizeCollectorName))
     : null;
@@ -375,9 +447,10 @@ function renderLeaderboard(periodId, groupId = "im") {
     : null;
   const data = calculatePeriodLeaderboard(sheets, allowedNames, excludedNames, prefix);
   const totalGrinds = data.reduce((sum, item) => sum + item.grinds, 0);
+  const amountLabel = groupId === "opt" ? "Всего шт" : "Всего помолов";
 
   periodElement.querySelector(".total").textContent = `Сборщиков: ${data.length}`;
-  periodElement.querySelector(".totalGrinds").textContent = `Всего помолов: ${totalGrinds}`;
+  periodElement.querySelector(".totalGrinds").textContent = `${amountLabel}: ${totalGrinds}`;
   renderDataInfo();
 
   periodElement.querySelectorAll(".sort-button").forEach((button) => {
@@ -430,11 +503,18 @@ function renderLeaderboard(periodId, groupId = "im") {
 function renderDataInfo() {
   const getColumnItems = (prefix, source) => {
     const columnName = (index) => state.headers[source][index] || `Столбец ${index + 1}`;
-    return [
+    const items = [
       `Сборщик: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "name")).value)))}</strong>`,
       `Статус: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "status")).value)))}</strong>`,
-      `Помолы: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "grinds")).value)))}</strong>`
+      `${prefix === "opt" ? "Шт" : "Помолы"}: <strong>${escapeHtml(columnName(Number($(columnElementId(prefix, "grinds")).value)))}</strong>`
     ];
+    const dateSelect = $(columnElementId(prefix, "date"));
+
+    if (dateSelect) {
+      items.push(`Дата: <strong>${escapeHtml(columnName(Number(dateSelect.value)))}</strong>`);
+    }
+
+    return items;
   };
   const periods = [
     ["day", "За день"],
@@ -455,9 +535,16 @@ function renderDataInfo() {
         ${getColumnItems("mp", "mp").map((item) => `<li>${item}</li>`).join("")}
       </ul>
     </div>
+    <div class="info-block">
+      <h3>Столбцы ОПТ</h3>
+      <ul>
+        ${getColumnItems("opt", "opt").map((item) => `<li>${item}</li>`).join("")}
+      </ul>
+    </div>
     ${periods.map(([periodId, title]) => {
     const names = state.periods[periodId].sourceNames?.im || [];
     const mpNames = state.periods[periodId].sourceNames?.mp || [];
+    const optNames = state.periods[periodId].sourceNames?.opt || [];
     return `
         <div class="info-block">
           <h3>${title}, ИМ</h3>
@@ -467,11 +554,15 @@ function renderDataInfo() {
           <h3>${title}, МП</h3>
           <p>${mpNames.length ? escapeHtml(mpNames.join(", ")) : "Лист «ОПТ и МП» не найден"}</p>
         </div>
+        <div class="info-block">
+          <h3>${title}, ОПТ</h3>
+          <p>${optNames.length ? escapeHtml(optNames.join(", ")) : "Нет строк с выбранными датами"}</p>
+        </div>
       `;
   }).join("")}
     <div class="info-block">
       <h3>Формула</h3>
-      <p>Собран = 1 балл. Непустой помол = 2 балла. Пустые значения дают 0.</p>
+      <p>Собран = 1 балл. Непустой помол или количество шт = 2 балла. Пустые значения дают 0.</p>
     </div>
   `;
 }
@@ -570,9 +661,47 @@ async function loadTabStatistics() {
   }
 }
 
+async function fetchCsvSheet(url, sheetName, sourceName) {
+  const response = await fetchPublicData(parseSheetUrl(url, sheetName), sourceName);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = parseCSV(await response.text());
+
+  if (data.length < 1) {
+    return null;
+  }
+
+  return { headers: data[0], rows: data.slice(1) };
+}
+
+function getAllPeriodSheetNames() {
+  return [...new Set(Object.entries(state.periods).flatMap(([periodId, period]) => {
+    const periodRange = periodId === "week" ? "currentWeek" : period.days;
+    return getDateSheetNames(periodRange);
+  }))];
+}
+
+async function fetchWorkbookFromCsv(url) {
+  const sheets = new Map();
+  const sheetNames = getAllPeriodSheetNames();
+
+  await Promise.all(sheetNames.map(async (sheetName) => {
+    const sheet = await fetchCsvSheet(url, sheetName, `лист «${sheetName}»`);
+
+    if (sheet) {
+      sheets.set(sheetName, sheet);
+    }
+  }));
+
+  return sheets;
+}
+
 async function fetchWorkbook(url) {
   if (!window.XLSX) {
-    throw new Error("Не загрузилась библиотека чтения Google Таблицы.");
+    return fetchWorkbookFromCsv(url);
   }
 
   const response = await fetchPublicData(parseExportUrl(url), "Google Таблицу");
@@ -601,19 +730,19 @@ async function fetchWorkbook(url) {
 
 async function fetchMpSheet(url) {
   const gid = (url.match(/[?#&]gid=(\d+)/) || [])[1];
+  const sheet = gid
+    ? await fetchTabSheet(url, "вкладку МП")
+    : await fetchCsvSheet(url, mpSheetName, `лист «${mpSheetName}»`);
 
-  if (!gid) {
-    const sheets = await fetchWorkbook(url);
-    const namedSheet = sheets.get(mpSheetName);
-
-    if (!namedSheet) {
-      throw new Error(`В базе МП не найден лист «${mpSheetName}».`);
-    }
-
-    return namedSheet;
+  if (!sheet) {
+    throw new Error(`В базе МП не найден лист «${mpSheetName}» или он пустой.`);
   }
 
-  const response = await fetchPublicData(parseTabUrl(url), "вкладку МП");
+  return sheet;
+}
+
+async function fetchTabSheet(url, sourceName) {
+  const response = await fetchPublicData(parseTabUrl(url), sourceName);
 
   if (!response.ok) {
     throw new Error("Вкладка МП недоступна. Проверьте доступ по ссылке.");
@@ -666,33 +795,44 @@ async function fetchAllPeriods(silent = false) {
     state.columnsInitialized.im = true;
   }
 
-  if (!state.columnsInitialized.mp && mpSheet) {
-    state.headers.mp = mpSheet.headers;
-    fillColumnSelects(state.headers.mp, "mp");
-    state.columnsInitialized.mp = true;
+  if (mpSheet) {
+    if (!state.columnsInitialized.mp) {
+      state.headers.mp = mpSheet.headers;
+      fillColumnSelects(state.headers.mp, "mp");
+      state.columnsInitialized.mp = true;
+    }
+    if (!state.columnsInitialized.opt) {
+      state.headers.opt = mpSheet.headers;
+      fillColumnSelects(state.headers.opt, "opt");
+      state.columnsInitialized.opt = true;
+    }
   }
 
   Object.entries(state.periods).forEach(([periodId, period]) => {
     const periodRange = periodId === "week" ? "currentWeek" : period.days;
     const periodNames = getDateSheetNames(periodRange);
+    const optDateNames = getDateKeys(periodRange);
     const periodSheets = periodNames
       .map((sheetName) => sheets.get(sheetName))
       .filter(Boolean);
 
     const dateSourceNames = periodNames.filter((sheetName) => sheets.has(sheetName));
     period.sheets = periodSheets;
+    const optRows = mpSheet ? filterRowsByDate(mpSheet.rows, new Set(optDateNames), "opt") : [];
     period.groupSheets = {
       im: periodSheets,
-      mp: mpSheet ? [mpSheet] : []
+      mp: mpSheet ? [mpSheet] : [],
+      opt: mpSheet ? [{ headers: mpSheet.headers, rows: optRows }] : []
     };
     period.sourceNames = {
       im: dateSourceNames,
-      mp: mpSheet ? [mpSheetName] : []
+      mp: mpSheet ? [mpSheetName] : [],
+      opt: optRows.length ? [`${optSheetName}: ${optDateNames.join(", ")}`] : []
     };
-    ["im", "mp"].forEach((groupId) => {
+    ["im", "mp", "opt"].forEach((groupId) => {
       renderLeaderboard(periodId, groupId);
       document.querySelector(`[data-group="${groupId}"][data-period="${periodId}"] .updated`).textContent =
-        groupId === "mp" && !mpSheet
+        groupId !== "im" && !mpSheet
           ? "База МП не подключена"
           : "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
     });
@@ -719,17 +859,26 @@ async function loadMpTable() {
     state.headers.mp = mpSheet.headers;
     fillColumnSelects(state.headers.mp, "mp");
     state.columnsInitialized.mp = true;
+    state.headers.opt = mpSheet.headers;
+    fillColumnSelects(state.headers.opt, "opt");
+    state.columnsInitialized.opt = true;
 
-    Object.values(state.periods).forEach((period) => {
+    Object.entries(state.periods).forEach(([periodId, period]) => {
+      const periodRange = periodId === "week" ? "currentWeek" : period.days;
+      const periodNames = getDateKeys(periodRange);
+      const optRows = filterRowsByDate(mpSheet.rows, new Set(periodNames), "opt");
+
       period.groupSheets.mp = [mpSheet];
+      period.groupSheets.opt = [{ headers: mpSheet.headers, rows: optRows }];
       period.sourceNames = period.sourceNames || {};
       period.sourceNames.mp = [mpSheetName];
-    });
-
-    ["day", "week", "month"].forEach((periodId) => {
+      period.sourceNames.opt = optRows.length ? [`${optSheetName}: ${periodNames.join(", ")}`] : [];
       renderLeaderboard(periodId, "mp");
-      document.querySelector(`[data-group="mp"][data-period="${periodId}"] .updated`).textContent =
-        "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
+      renderLeaderboard(periodId, "opt");
+      ["mp", "opt"].forEach((groupId) => {
+        document.querySelector(`[data-group="${groupId}"][data-period="${periodId}"] .updated`).textContent =
+          "Обновлено: " + new Date().toLocaleTimeString("ru-RU");
+      });
     });
   } catch (error) {
     showError(error.message || "Не удалось загрузить базу МП.");
@@ -765,7 +914,7 @@ async function loadTable() {
   state.dateFormat = $("dateFormat").value.trim() || "DD.MM.YYYY";
   localStorage.setItem(`${savedUrlKey}-date-format`, state.dateFormat);
 
-  state.columnsInitialized = { im: false, mp: false };
+  state.columnsInitialized = { im: false, mp: false, opt: false };
 
   try {
     await fetchAllPeriods(false);
@@ -830,7 +979,7 @@ $("changeDbBtn").addEventListener("click", () => {
 });
 const renderAllGroups = () => {
   Object.keys(state.periods).forEach((periodId) => {
-    ["im", "mp"].forEach((groupId) => renderLeaderboard(periodId, groupId));
+    ["im", "mp", "opt"].forEach((groupId) => renderLeaderboard(periodId, groupId));
   });
 };
 
@@ -840,6 +989,11 @@ $("grindsCol").addEventListener("change", renderAllGroups);
 $("mpNameCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
 $("mpStatusCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
 $("mpGrindsCol").addEventListener("change", () => ["day", "week", "month"].forEach((periodId) => renderLeaderboard(periodId, "mp")));
+const renderOptGroup = () => fetchAllPeriods(true);
+$("optNameCol").addEventListener("change", renderOptGroup);
+$("optStatusCol").addEventListener("change", renderOptGroup);
+$("optGrindsCol").addEventListener("change", renderOptGroup);
+$("optDateCol").addEventListener("change", renderOptGroup);
 $("tabNameCol").addEventListener("change", renderTabStatistics);
 $("tabStatusCol").addEventListener("change", renderTabStatistics);
 $("tabPositionsCol").addEventListener("change", renderTabStatistics);

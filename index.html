@@ -117,6 +117,37 @@
         ФБС.</p>
     </section>
 
+    <section class="card settings admin-only">
+      <h2>Настройки «ОПТ»</h2>
+      <div class="form-grid opt-form-grid">
+        <div class="field">
+          <label for="optNameCol">Столбец с фамилией</label>
+          <select id="optNameCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="optStatusCol">Столбец со статусом «Собран»</label>
+          <select id="optStatusCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="optGrindsCol">Столбец с количеством шт в заказе</label>
+          <select id="optGrindsCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="optDateCol">Столбец с датой</label>
+          <select id="optDateCol" disabled>
+            <option>Сначала загрузите базу МП</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">ОПТ берёт строки из вкладки «ОПТ и МП». Для разделения по дням выберите столбец с датой: дата может быть внутри текста, но должна быть в формате ДД.ММ.ГГГГ, ДД/ММ/ГГГГ или ДД-ММ-ГГГГ.</p>
+    </section>
+
     <div id="error" class="error" role="alert"></div>
 
     <section class="card tab-statistics admin-only">
@@ -271,6 +302,64 @@
             <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
               class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
               type="button" data-sort="grinds">Помолы</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="leaderboards" data-group="opt">
+        <h2 class="leaderboards-title">ОПТ</h2>
+        <section class="card leaderboard" data-group="opt" data-period="day">
+          <div class="period-header">
+            <div>
+              <h2>За день</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Шт</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+        <section class="card leaderboard" data-group="opt" data-period="week">
+          <div class="period-header">
+            <div>
+              <h2>За 7 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Шт</button><button class="sort-button" type="button"
+              data-sort="score">Общий счёт</button>
+          </div>
+          <div class="rows">
+            <div class="empty">Подключите Google Таблицу, чтобы увидеть рейтинг.</div>
+          </div>
+        </section>
+        <section class="card leaderboard" data-group="opt" data-period="month">
+          <div class="period-header">
+            <div>
+              <h2>За 30 дней</h2>
+              <div class="live"><span class="dot"></span><span class="updated">Ожидание подключения</span></div>
+            </div>
+            <div class="totals"><span class="total"></span><span class="totalGrinds"></span></div>
+          </div>
+          <div class="table-head">
+            <div>Место</div><button class="sort-button" type="button" data-sort="name">Сборщик</button><button
+              class="sort-button" type="button" data-sort="collected">Собран</button><button class="sort-button"
+              type="button" data-sort="grinds">Шт</button><button class="sort-button" type="button"
               data-sort="score">Общий счёт</button>
           </div>
           <div class="rows">
